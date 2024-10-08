@@ -1,40 +1,68 @@
 import random
+from Document import Document, cosine_similarity
+from collections import defaultdict
 
-from Document import *
-
-class Cluster :
-    ## a cluster is a group of documents
+class Cluster:
+    # Group of documents
     def __init__(self, centroid=None, members=None):
-        if centroid :
-            self.centroid = centroid
-        else :
-            self.centroid = Document(true_class='pos')
-        if members :
-            self.members = members
-        else :
-            self.members = []
+        self.centroid = centroid if centroid else Document(true_class='pos')
+        self.members = members if members else []
 
     def __repr__(self):
         return f"{self.centroid} {len(self.members)}"
 
-    ## You do this.
     def calculate_centroid(self):
-        pass
+        if not self.members:
+            self.centroid = Document(true_class=self.centroid.true_class)
+            return
+
+        summed_tokens = defaultdict(float)
+        for doc in self.members:
+            for token, count in doc.tokens.items():
+                summed_tokens[token] += count
+
+        num_members = len(self.members)
+        averaged_tokens = {token: count / num_members for token, count in summed_tokens.items()}
+
+        centroid_doc = Document(true_class=self.centroid.true_class)
+        for token, count in averaged_tokens.items():
+            centroid_doc.tokens[token] = count
+
+        self.centroid = centroid_doc
+
+def k_means(n_clusters, true_classes, data, max_iterations=100):
+    clusters = []
+    for i in range(n_clusters):
+        random_doc = random.choice(data)
+        clusters.append(Cluster(centroid=random_doc))
+
+    for iteration in range(max_iterations):
+        for cluster in clusters:
+            cluster.members = []
+
+        for doc in data:
+            similarities = [cosine_similarity(doc, cluster.centroid) for cluster in clusters]
+            best_cluster_index = similarities.index(max(similarities))
+            clusters[best_cluster_index].members.append(doc)
+
+        old_centroids = [cluster.centroid.tokens.copy() for cluster in clusters]
+
+        for cluster in clusters:
+            cluster.calculate_centroid()
+
+        converged = True
+        for idx, cluster in enumerate(clusters):
+            if cluster.centroid.tokens != old_centroids[idx]:
+                converged = False
+                break
+
+        if converged:
+            break
+
+    return clusters
 
 
-# Call like so: k_means(2, ['pos','neg'], positive_docs + negative_docs)
 
-def k_means(n_clusters, true_classes, data) :
-    cluster_list = [Cluster(centroid=Document(true_class=item)) for item in true_classes]
 
-    ## initially assign data randomly.
 
-    ## compute initial cluster centroids
 
-    # while not done and i < limit
-    #   i++
-
-    #   reassign each Document to the closest matching cluster using
-    #   cosine similarity
-    #   compute the centroids of each cluster
-    return cluster_list
